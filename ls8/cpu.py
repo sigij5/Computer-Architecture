@@ -17,6 +17,20 @@ class CPU:
         self.pc = 0
         self.reg[7] = 0xF4
         self.halted = False
+        self.branchtable = {}
+        self.branchtable[LDI] = self.handle_ldi
+        self.branchtable[PRN] = self.handle_prn
+        self.branchtable[HLT] = self.handle_hlt
+        self.branchtable[MUL] = self.handle_mul
+    
+    def handle_ldi(self, instruction, op_a, op_b):
+        self.reg[op_a] = op_b
+    def handle_prn(self, instruction, op_a, op_b):
+        print(self.reg[op_a])
+    def handle_hlt(self, instruction, op_a, op_b):
+        self.halted = True
+    def handle_mul(self, instruction, op_a, op_b):
+        self.alu(instruction, op_a, op_b)
 
     def ram_read(self, address):
         return self.ram[address]
@@ -56,10 +70,8 @@ class CPU:
                     num = comment_split[0]
                     try:
                         x = int(num, 2)
-                        # print("{:08b}: {:d}".format(x,x))
-                        self.ram[address] = x
+                        self.ram_write(x, address)
                         address += 1
-                        # print(x)
                     except:
                         continue
         except:
@@ -105,22 +117,24 @@ class CPU:
         # ir = []
         while not self.halted:
             instruction = self.ram_read(self.pc)
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+            op_size = (instruction >> 6) + 1
 
-            if instruction == HLT:
-                self.halted = True
-                self.pc += 1
-            elif instruction == LDI:
-                address = self.ram_read(self.pc + 1)
-                value = self.ram_read(self.pc + 2)
-                self.reg[address] = value
-                self.pc += 3
-            elif instruction == PRN:
-                value = self.ram_read(self.pc + 1)
-                print(self.reg[value])
-                self.pc += 2
-            elif ((instruction >> 5) & 0b1):
-                val_1 = self.ram_read(self.pc + 1)
-                val_2 = self.ram_read(self.pc + 2)
-                self.alu(instruction, val_1, val_2)
-                self.pc += 3
+            # if instruction == HLT:
+            #     self.halted = True
+            # elif instruction == LDI:
+            #     address = self.ram_read(self.pc + 1)
+            #     value = self.ram_read(self.pc + 2)
+            #     self.reg[address] = value
+            # elif instruction == PRN:
+            #     value = self.ram_read(self.pc + 1)
+            #     print(self.reg[value])
+            # elif ((instruction >> 5) & 0b1):
+            #     val_1 = self.ram_read(self.pc + 1)
+            #     val_2 = self.ram_read(self.pc + 2)
+            #     self.alu(instruction, val_1, val_2)
+            self.branchtable[instruction](instruction, operand_a, operand_b)
+            
+            self.pc += op_size
 
