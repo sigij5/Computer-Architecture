@@ -6,6 +6,8 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
 
 class CPU:
     """Main CPU class."""
@@ -17,20 +19,36 @@ class CPU:
         self.pc = 0
         self.reg[7] = 0xF4
         self.halted = False
-        self.branchtable = {}
+        self.branchtable = {}       ## Lambda expression to add entries?
         self.branchtable[LDI] = self.handle_ldi
         self.branchtable[PRN] = self.handle_prn
         self.branchtable[HLT] = self.handle_hlt
-        self.branchtable[MUL] = self.handle_mul
+        self.branchtable[MUL] = self.alu
+        self.branchtable[PUSH] = self.push
+        self.branchtable[POP] = self.pop
+        # self.sp = 0xF4
     
     def handle_ldi(self, instruction, op_a, op_b):
         self.reg[op_a] = op_b
+
     def handle_prn(self, instruction, op_a, op_b):
         print(self.reg[op_a])
+
     def handle_hlt(self, instruction, op_a, op_b):
         self.halted = True
-    def handle_mul(self, instruction, op_a, op_b):
-        self.alu(instruction, op_a, op_b)
+
+    def pop(self, instruction, op_a, op_b):
+        sp = self.reg[7]
+        value = self.ram[sp]
+        self.reg[op_a] = value
+        self.reg[7] += 1
+        
+    def push(self, instruction, op_a, op_b):
+        self.reg[7] -= 1
+        value = self.reg[op_a]
+        self.ram[self.reg[7]] = value
+
+        # print(self.ram[0xf0:0xf4])
 
     def ram_read(self, address):
         return self.ram[address]
