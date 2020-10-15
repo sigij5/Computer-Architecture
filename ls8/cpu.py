@@ -8,6 +8,9 @@ PRN = 0b01000111
 MUL = 0b10100010
 PUSH = 0b01000101
 POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001
+ADD = 0b10100000
 
 class CPU:
     """Main CPU class."""
@@ -24,8 +27,11 @@ class CPU:
         self.branchtable[PRN] = self.handle_prn
         self.branchtable[HLT] = self.handle_hlt
         self.branchtable[MUL] = self.alu
+        self.branchtable[ADD] = self.alu
         self.branchtable[PUSH] = self.push
         self.branchtable[POP] = self.pop
+        self.branchtable[CALL] = self.call
+        self.branchtable[RET] = self.ret
         # self.sp = 0xF4
     
     def handle_ldi(self, instruction, op_a, op_b):
@@ -49,6 +55,18 @@ class CPU:
         self.ram[self.reg[7]] = value
 
         # print(self.ram[0xf0:0xf4])
+    def call(self, instruction, op_a, op_b):
+        # self.push(instruction, op_b, op_a)
+        # self.pc = self.reg[op_a]
+        self.reg[7] -= 1
+        self.ram[self.reg[7]] = self.pc + 2
+        self.pc = self.reg[op_a]
+        
+    def ret(self, instruction, op_a, op_b):
+        # self.pop(op_a, instruction, op_b)
+        returnAddress = self.ram[self.reg[7]]
+        self.ram[self.reg[7]] += 1
+        self.pc = returnAddress
 
     def ram_read(self, address):
         return self.ram[address]
@@ -61,22 +79,6 @@ class CPU:
         """Load a program into memory."""
 
         address = 0
-
-        # # For now, we've just hardcoded a program:
-
-        # program = [
-        #     # From print8.ls8
-        #     0b10000010, # LDI R0,8
-        #     0b00000000,
-        #     0b00001000,
-        #     0b01000111, # PRN R0
-        #     0b00000000,
-        #     0b00000001, # HLT
-        # ]
-
-        # for instruction in program:
-        #     self.ram[address] = instruction
-        #     address += 1
 
         if len(sys.argv) != 2:
             print("Incorrect Command Line Args")
@@ -95,20 +97,19 @@ class CPU:
         except:
             print("File Not Found")
             sys.exit(1)
-        
-
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
-        if op == "ADD":
+        if op == ADD:
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
-        if op == MUL:
+
+        elif op == MUL:
             self.reg[reg_a] *= self.reg[reg_b]
 
         else:
-            raise Exception("Unsupported ALU operation")
+            raise Exception(f"Unsupported ALU operation: {op}")
+            
 
     def trace(self):
         """
@@ -139,20 +140,8 @@ class CPU:
             operand_b = self.ram_read(self.pc + 2)
             op_size = (instruction >> 6) + 1
 
-            # if instruction == HLT:
-            #     self.halted = True
-            # elif instruction == LDI:
-            #     address = self.ram_read(self.pc + 1)
-            #     value = self.ram_read(self.pc + 2)
-            #     self.reg[address] = value
-            # elif instruction == PRN:
-            #     value = self.ram_read(self.pc + 1)
-            #     print(self.reg[value])
-            # elif ((instruction >> 5) & 0b1):
-            #     val_1 = self.ram_read(self.pc + 1)
-            #     val_2 = self.ram_read(self.pc + 2)
-            #     self.alu(instruction, val_1, val_2)
             self.branchtable[instruction](instruction, operand_a, operand_b)
             
-            self.pc += op_size
+            if not(instruction == CALL or instruction == RET):
+                self.pc += op_size
 
