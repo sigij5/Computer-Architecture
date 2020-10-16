@@ -11,6 +11,10 @@ POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
 ADD = 0b10100000
+CMP = 0b10100111
+JMP = 0b01010100
+JEQ = 0b01010101
+JNE = 0b01010110
 
 class CPU:
     """Main CPU class."""
@@ -32,7 +36,12 @@ class CPU:
         self.branchtable[POP] = self.pop
         self.branchtable[CALL] = self.call
         self.branchtable[RET] = self.ret
+        self.branchtable[CMP] = self.alu
+        self.branchtable[JMP] = self.jmp
+        self.branchtable[JEQ] = self.jeq
+        self.branchtable[JNE] = self.jne
         # self.sp = 0xF4
+        self.fl = 0b00000000
     
     def handle_ldi(self, instruction, op_a, op_b):
         self.reg[op_a] = op_b
@@ -56,10 +65,10 @@ class CPU:
 
         # print(self.ram[0xf0:0xf4])
     def call(self, instruction, op_a, op_b):
-        # self.push(instruction, op_b, op_a)
-        # self.pc = self.reg[op_a]
+
         self.reg[7] -= 1
         self.ram[self.reg[7]] = self.pc + 2
+        # self.push(instruction, self.pc + 2, op_b)
         self.pc = self.reg[op_a]
         
     def ret(self, instruction, op_a, op_b):
@@ -67,6 +76,24 @@ class CPU:
         returnAddress = self.ram[self.reg[7]]
         self.ram[self.reg[7]] += 1
         self.pc = returnAddress
+
+    def jmp(self, instruction, op_a, op_b):
+        self.pc = self.reg[op_a]   
+        # print("JUMPED")
+
+    def jeq(self, instruction, op_a, op_b):
+        if self.fl or 0b0:
+            self.jmp(instruction, op_a, op_b)  
+            # print("EQUAL WAS TRUE")
+        else:
+            self.pc += 2
+
+    def jne(self, instruction, op_a, op_b):
+        if self.fl == 0b0:
+            self.jmp(instruction, op_a, op_b)
+            # print("EQUAL WAS FALSE")
+        else:
+            self.pc += 2
 
     def ram_read(self, address):
         return self.ram[address]
@@ -106,10 +133,18 @@ class CPU:
 
         elif op == MUL:
             self.reg[reg_a] *= self.reg[reg_b]
+        
+        elif op == CMP:
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.fl -= self.fl
+                self.fl = self.fl or 0b1
+                # print("EQUAL")
+            else:
+                self.fl -= self.fl
+                # print("NOT EQUAL")
 
         else:
-            raise Exception(f"Unsupported ALU operation: {op}")
-            
+            raise Exception(f"Unsupported ALU operation: {op}")  
 
     def trace(self):
         """
@@ -142,6 +177,12 @@ class CPU:
 
             self.branchtable[instruction](instruction, operand_a, operand_b)
             
-            if not(instruction == CALL or instruction == RET):
+            if not(instruction == CALL or instruction == RET or instruction == JMP 
+            or instruction == JNE or instruction == JEQ):
+            # if instruction in {CALL, RET, JMP, JNE, JEQ}:
+            #     continue
+            # else:
                 self.pc += op_size
+            # print("Current pc:")
+            # print(self.pc)
 
